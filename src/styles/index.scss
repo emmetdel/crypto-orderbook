@@ -1,0 +1,31 @@
+@import "./reset";
+
+$bg-color : rgb(28, 42, 49);
+$text-color : rgb(228, 228, 228);
+
+.container{
+    background-color: $bg-color;
+    color: $text-color;
+    height: 100vh;
+    display: grid;
+    grid-template-areas: 'header'
+                         'main'
+                         'footer';
+    grid-template-rows: 75px 1fr 75px;
+
+    #header{
+        grid-area: header;
+    }
+    #main{
+        grid-area: main;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+    }
+    #footer{
+        grid-area: footer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+}
