@@ -7,22 +7,46 @@ export interface OrderBookEntry {
     price: number;
     size: number;
     total: number;
+    barPercentage: number;
 }
 
-type BidMap = Map<number, {size: number; total: number}>;
-type AskMap = BidMap;
+type BidMap = Map<number, {size: number; total: number; barPercentage: number}>;
 
 export default class OrderBookProcessor {
     private _numberLevels = 0;
     private _initialBids: BidMap = new Map();
-    private _initialAsks: AskMap = new Map();
+    private _initialAsks: BidMap = new Map();
 
-    public get bids(): BidMap {
-        return this._initialBids;
+    private _getHighestTotalValueInMap = (map: BidMap) => {
+        const lastItem = Array.from(map.values()).pop();
+        console.debug(lastItem);
+        return lastItem ? lastItem.total : 0;
+    };
+
+    private get highestTotal(): number {
+        const highestTotal = Math.max(
+            this._getHighestTotalValueInMap(this._initialAsks),
+            this._getHighestTotalValueInMap(this._initialBids)
+        );
+        console.debug(`Highest Total: ${highestTotal}`);
+
+        return highestTotal;
     }
 
-    public get asks(): AskMap {
-        return this._initialAsks;
+    public get asks(): Array<OrderBookEntry> {
+        const tmpArray: Array<OrderBookEntry> = [];
+        for (const [key, {size, total}] of this._initialAsks) {
+            tmpArray.push({price: key, size, total, barPercentage: 0});
+        }
+        return tmpArray;
+    }
+
+    public get bids(): Array<OrderBookEntry> {
+        const tmpArray: Array<OrderBookEntry> = [];
+        for (const [key, {size, total}] of this._initialBids) {
+            tmpArray.push({price: key, size, total, barPercentage: 0});
+        }
+        return tmpArray;
     }
 
     public processData = (data: WSResponse): void => {
@@ -45,42 +69,53 @@ export default class OrderBookProcessor {
 
         // delta
         if (this._numberLevels > 0) {
-            this.updateEntries(asks);
-            this.updateEntries(bids);
+            this._updateEntries(asks, this._initialAsks);
+            this._updateEntries(bids, this._initialBids);
         }
     };
 
-    private _initializeEntries = (
-        array: number[][]
-    ): Map<number, {size: number; total: number}> => {
-        const entryMap = new Map<number, {size: number; total: number}>();
+    private _initializeEntries = (array: number[][]): BidMap => {
+        const entryMap = new Map() as BidMap;
         for (const [price, size] of array) {
-            entryMap.set(price, {size, total: 0});
+            entryMap.set(price, {size, total: 0, barPercentage: 0});
         }
+        this._updateTotals(entryMap);
         return entryMap;
     };
 
-    updateEntries = (arr: Array<number[]>): void => {
+    private _updateEntries = (arr: Array<number[]>, map: BidMap): void => {
         console.debug("Updating entries.");
 
-        let index = 0;
-        let sizeAccumulator = 0;
-        for (const item of arr) {
-            const [currentPrice, currentSize] = item;
-
-            if (currentSize === 0) {
-                this._initialAsks.delete(currentPrice);
-                index++;
+        for (const [price, size] of arr) {
+            if (size === 0) {
+                map.delete(price);
                 continue;
             }
-
-            this._initialAsks.set(currentPrice, {
-                size: currentSize,
-                total: index === 0 ? currentSize : sizeAccumulator
+            map.set(price, {
+                size: size,
+                total: 0,
+                barPercentage: 0
             });
+        }
+        this._updateTotals(map);
+    };
 
-            sizeAccumulator += currentSize;
-            index++;
+    private _updateTotals = (map: BidMap): void => {
+        let accumulator = 0;
+        for (const [key, {size}] of map) {
+            accumulator += size;
+
+            map.set(key, {size: size, total: accumulator, barPercentage: 0});
+        }
+
+        const highestTotal = this.highestTotal;
+
+        for (const [key, value] of map) {
+            const barPercentage = Math.round((value.total / highestTotal) * 100);
+            console.debug(
+                `Total: ${value.total}, highest total: ${highestTotal}, percentage: ${barPercentage}`
+            );
+            map.set(key, {...value, barPercentage});
         }
     };
 }
