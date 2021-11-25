@@ -1,23 +1,22 @@
-import React, {useEffect} from "react";
+import React, {useEffect, useState} from "react";
 import ToggleFeedBtn from "components/ToggleFeedBtn/toggle-feed-button.component";
 import Api, {ProductID, WSResponse} from "./data/Api";
-import OrderBookProcessor from "./utils/order-processing";
+import OrderBookProcessor, {OrderBookEntry} from "./utils/order-processing";
 
 // styles
 import "./styles/index.scss";
 
 const App: React.FC = () => {
+    const [processedData, setProcessedData] = useState<[OrderBookEntry[], OrderBookEntry[]]>();
     const processor = new OrderBookProcessor();
-    const api = new Api(ProductID.Bitcoin, (data: WSResponse) => processor.processData(data));
+    const api = new Api(ProductID.Bitcoin, (data: WSResponse) => {
+        const dataArr = processor.processData(data);
+        setProcessedData(dataArr);
+        console.debug(processedData);
+    });
 
     useEffect(() => {
         api.connect();
-
-        setTimeout(() => {
-            api.disconnect();
-            console.debug(processor.asks);
-            console.debug(processor.bids);
-        }, 500);
     });
 
     const toggleCallback = () => {
@@ -36,8 +35,16 @@ const App: React.FC = () => {
                     <h4>Spread: </h4>
                 </header>
                 <section id="main">
-                    <div className="sub-grid">Sub 1</div>
-                    <div className="sub-grid">Sub 2</div>
+                    {/* <div className="sub-grid">
+                        {processedData[0].map((x) => (
+                            <span key={x.price}>{x.price}</span>
+                        ))}
+                    </div>
+                    <div className="sub-grid">
+                        {processedData[1].map((x) => (
+                            <span key={x.price}>{x.price}</span>
+                        ))}
+                    </div> */}
                 </section>
                 <section id="footer">
                     <ToggleFeedBtn clickCallback={toggleCallback} />

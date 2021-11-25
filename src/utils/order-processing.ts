@@ -10,16 +10,15 @@ export interface OrderBookEntry {
     barPercentage: number;
 }
 
-type BidMap = Map<number, {size: number; total: number; barPercentage: number}>;
+export type DataMap = Map<number, {size: number; total: number; barPercentage: number}>;
 
 export default class OrderBookProcessor {
     private _numberLevels = 0;
-    private _initialBids: BidMap = new Map();
-    private _initialAsks: BidMap = new Map();
+    private _initialBids: DataMap = new Map();
+    private _initialAsks: DataMap = new Map();
 
-    private _getHighestTotalValueInMap = (map: BidMap) => {
+    private _getHighestTotalValueInMap = (map: DataMap) => {
         const lastItem = Array.from(map.values()).pop();
-        console.debug(lastItem);
         return lastItem ? lastItem.total : 0;
     };
 
@@ -28,7 +27,6 @@ export default class OrderBookProcessor {
             this._getHighestTotalValueInMap(this._initialAsks),
             this._getHighestTotalValueInMap(this._initialBids)
         );
-        console.debug(`Highest Total: ${highestTotal}`);
 
         return highestTotal;
     }
@@ -49,7 +47,7 @@ export default class OrderBookProcessor {
         return tmpArray;
     }
 
-    public processData = (data: WSResponse): void => {
+    public processData = (data: WSResponse): [OrderBookEntry[], OrderBookEntry[]] => {
         const {feed, asks, bids, numLevels, event} = data;
 
         // initial subscription
@@ -72,10 +70,12 @@ export default class OrderBookProcessor {
             this._updateEntries(asks, this._initialAsks);
             this._updateEntries(bids, this._initialBids);
         }
+
+        return [this.asks, this.bids];
     };
 
-    private _initializeEntries = (array: number[][]): BidMap => {
-        const entryMap = new Map() as BidMap;
+    private _initializeEntries = (array: number[][]): DataMap => {
+        const entryMap = new Map() as DataMap;
         for (const [price, size] of array) {
             entryMap.set(price, {size, total: 0, barPercentage: 0});
         }
@@ -83,7 +83,7 @@ export default class OrderBookProcessor {
         return entryMap;
     };
 
-    private _updateEntries = (arr: Array<number[]>, map: BidMap): void => {
+    private _updateEntries = (arr: Array<number[]>, map: DataMap): void => {
         console.debug("Updating entries.");
 
         for (const [price, size] of arr) {
@@ -100,7 +100,7 @@ export default class OrderBookProcessor {
         this._updateTotals(map);
     };
 
-    private _updateTotals = (map: BidMap): void => {
+    private _updateTotals = (map: DataMap): void => {
         let accumulator = 0;
         for (const [key, {size}] of map) {
             accumulator += size;
@@ -112,9 +112,9 @@ export default class OrderBookProcessor {
 
         for (const [key, value] of map) {
             const barPercentage = Math.round((value.total / highestTotal) * 100);
-            console.debug(
-                `Total: ${value.total}, highest total: ${highestTotal}, percentage: ${barPercentage}`
-            );
+            // console.debug(
+            //     `Total: ${value.total}, highest total: ${highestTotal}, percentage: ${barPercentage}`
+            // );
             map.set(key, {...value, barPercentage});
         }
     };
